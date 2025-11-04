@@ -19,12 +19,12 @@ public class UserController {
 		
 		
 		
+		int size =120;
 		
 		
+		int list1=ser.createUser(user);
 		
-		int list=ser.createUser(user);
-		
-		if(list!=0) {
+		if(list1!=0) {
 			return ResponseEntity.ok("SuccessFully created");
 		}
 		
