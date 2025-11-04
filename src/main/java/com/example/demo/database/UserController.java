@@ -17,11 +17,31 @@ public class UserController {
 	@PostMapping("/user/create")
 	public ResponseEntity<String> createUsers(@RequestBody Users user){
 		
+		
+		
+		
+		
+		
 		int list=ser.createUser(user);
 		
 		if(list!=0) {
 			return ResponseEntity.ok("SuccessFully created");
 		}
+		
+		
+		
+		
+		
+		
+		
+		else if(0!= 0) {
+			return ResponseEntity.ok("SuccessFully created conflict");
+		}
+		
+		
+		
+		
+		
 		else {
 			return ResponseEntity.ok("Users Not created");
 		}
