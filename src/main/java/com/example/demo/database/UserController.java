@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -15,17 +16,22 @@ public class UserController {
 	private UserService ser;
 	
 	@PostMapping("/user/create")
-	public ResponseEntity<String> createUsers(@RequestBody Users user){
+	public ResponseEntity<String> createUsers(@RequestBody List<Users> user){
 		
-		int list=ser.createUser(user);
+		int[] list=ser.createUsers(user);
 		
-		if(list!=0) {
+		if(list.length!=0) {
 			return ResponseEntity.ok("SuccessFully created");
 		}
 		else {
 			return ResponseEntity.ok("Users Not created");
 		}
 		
+	}
+	
+	@GetMapping("/user/findall")
+	public ResponseEntity<List<?>> findAll(){
+		return ResponseEntity.ok(ser.findAll());
 	}
 
 }

@@ -4,8 +4,11 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.jdbc.core.BatchPreparedStatementSetter;
 import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -19,6 +22,11 @@ public class UserService {
 	@Autowired
     private JdbcTemplate jdbcTemplate;
 	
+	@Autowired
+	private RedisTemplate<String,Object> redisTemplate;
+	
+	private static final String ALL_USERS_KEY = "users:all";
+	
 	
 	public int createUser(Users user) {
 		
@@ -30,10 +38,24 @@ public class UserService {
 		
 		RowMapper<Users> rowMapper= new BeanPropertyRowMapper<>(Users.class);
 		
-		return jdbcTemplate.update(sql,user.getName(),user.getEmail());
+		 redisTemplate.delete(ALL_USERS_KEY);
+	     redisTemplate.delete("users:" + user.getName() + ":" + user.getEmail());
+		
+		return jdbcTemplate.update(sql,rowMapper);
 		
 	}
     public List<Users> findBynameAndEmail(Users user) {
+    	
+    	  String key = "users:" + user.getName() + ":" + user.getEmail();
+          ValueOperations<String, Object> ops = redisTemplate.opsForValue();
+
+          // Check Redis cache first
+          List<Users> cached = (List<Users>) ops.get(key);
+          if (cached != null) {
+              System.out.println("✅ Returning from Redis cache");
+              return cached;
+          }
+
 		
 		List<Object> users=new ArrayList<>();
 		users.add(user.getName());
@@ -43,7 +65,8 @@ public class UserService {
 		
 		RowMapper<Users> rowMapper= new BeanPropertyRowMapper<>(Users.class);
 		
-		
+		 ops.set(key, jdbcTemplate.query(sql, rowMapper,users.toArray()), 10, TimeUnit.MINUTES);
+	    
 		return jdbcTemplate.query(sql, rowMapper,users.toArray());
 	}
 	
@@ -56,8 +79,8 @@ public class UserService {
             @Override
             public void setValues(PreparedStatement ps, int i) throws SQLException {
                 Users users = user.get(i);
-                ps.setString(2, users.getName());
-                ps.setString(3, users.getEmail());
+                ps.setString(1, users.getName());
+                ps.setString(2, users.getEmail());
             }
 
             @Override
@@ -79,8 +102,22 @@ public class UserService {
     }
     
     public List<Users> findAll() {
+       ValueOperations<String, Object> valueOps = redisTemplate.opsForValue();
+        List<Users> cachedUsers = (List<Users>) valueOps.get(ALL_USERS_KEY);
+
+        if (cachedUsers != null && !cachedUsers.isEmpty()) {
+            System.out.println("✅ Returning users from Redis cache");
+            return cachedUsers;
+        }
+
+        // If cache miss → get from database
+        System.out.println("💾 Cache miss — fetching from database");
         String sql = "SELECT * FROM users";
-        return jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(Users.class));
+        List<Users> users = jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(Users.class));
+
+        valueOps.set(ALL_USERS_KEY, users, 10, TimeUnit.MINUTES);
+
+        return users;
     }
 	
     
